@@ -18,12 +18,6 @@ export default function App() {
     setTasks([...tasks, { id: Date.now(), text, column: "lunes", done: false }]);
   };
 
-  const editTask = (task) => {
-    const text = prompt("Editar tarea:", task.text);
-    if (!text) return;
-    setTasks(tasks.map(t => t.id === task.id ? { ...t, text } : t));
-  };
-
   const deleteTask = (id) => {
     setTasks(tasks.filter(t => t.id !== id));
   };
@@ -47,6 +41,14 @@ export default function App() {
   };
 
   const weekDays = ["lunes", "martes", "miercoles", "jueves", "viernes"];
+
+  const dayColors = {
+    lunes: "#d5e8ff",
+    martes: "#d5e8ff",
+    miercoles: "#fff3c4",
+    jueves: "#d6f5d6",
+    viernes: "#d6f5d6"
+  };
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
@@ -79,7 +81,7 @@ export default function App() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => handleDrop(day)}
             style={{
-              background: "#f4f4f4",
+              background: dayColors[day],
               padding: 10,
               borderRadius: 10,
               minHeight: "300px",
@@ -125,22 +127,12 @@ export default function App() {
 
                   <div style={{ display: "flex", gap: 10 }}>
                     <button
-                      onClick={() => editTask(task)}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer"
-                      }}
-                    >
-                      ✏️
-                    </button>
-
-                    <button
                       onClick={() => deleteTask(task.id)}
                       style={{
                         border: "none",
                         background: "transparent",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        fontSize: 18
                       }}
                     >
                       🗑️
