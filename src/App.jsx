@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 export default function App() {
+
   // ---------------------------
   //   LOCAL STORAGE: CARGAR
   // ---------------------------
   const loadTasks = () => {
-    const saved = localStorage.getItem("tasks-week");
+    const saved = localStorage.getItem("tasks-board");
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -19,11 +20,12 @@ export default function App() {
 
   const [tasks, setTasks] = useState(
     loadTasks() || {
-      lunes: [],
-      martes: [],
-      miercoles: [],
-      jueves: [],
-      viernes: [],
+      todo: [
+        { id: "1", text: "Tarea 1", completed: false },
+        { id: "2", text: "Tarea 2", completed: false },
+      ],
+      proceso: [{ id: "3", text: "Tarea 3 en proceso", completed: false }],
+      delegadas: [{ id: "4", text: "Tarea delegada", completed: false }],
     }
   );
 
@@ -33,8 +35,36 @@ export default function App() {
   //   LOCAL STORAGE: GUARDAR
   // ---------------------------
   useEffect(() => {
-    localStorage.setItem("tasks-week", JSON.stringify(tasks));
+    localStorage.setItem("tasks-board", JSON.stringify(tasks));
   }, [tasks]);
+
+  // ---------------------------
+  //   BORRAR TAREA (CANASTA)
+  // ---------------------------
+  const deleteTask = (id) => {
+    setTasks((prev) => {
+      const newState = { ...prev };
+      for (const col in newState) {
+        newState[col] = newState[col].filter((t) => t.id !== id);
+      }
+      return newState;
+    });
+  };
+
+  // ---------------------------
+  //   MARCAR / DESMARCAR COMPLETADA
+  // ---------------------------
+  const toggleComplete = (id) => {
+    setTasks((prev) => {
+      const newState = { ...prev };
+      for (const col in newState) {
+        newState[col] = newState[col].map((t) =>
+          t.id === id ? { ...t, completed: !t.completed } : t
+        );
+      }
+      return newState;
+    });
+  };
 
   // ---------------------------
   //   DRAG & DROP
@@ -42,7 +72,15 @@ export default function App() {
   const handleDragEnd = (result) => {
     const sourceColumn = result.source.droppableId;
 
-    if (!result.destination) return;
+    if (!result.destination) {
+      setTasks((prev) => ({
+        ...prev,
+        [sourceColumn]: prev[sourceColumn].filter(
+          (t, index) => index !== result.source.index
+        ),
+      }));
+      return;
+    }
 
     const destColumn = result.destination.droppableId;
 
@@ -60,58 +98,28 @@ export default function App() {
   };
 
   // ---------------------------
-  //   AGREGAR TAREA (Siempre se agrega a LUNES por defecto)
+  //   AGREGAR TAREA
   // ---------------------------
   const addTask = () => {
     if (!newTask.trim()) return;
 
     const newId = Date.now().toString();
-    const newItem = { id: newId, text: newTask, done: false };
+    const newItem = { id: newId, text: newTask, completed: false };
 
     setTasks({
       ...tasks,
-      lunes: [...tasks.lunes, newItem],
+      todo: [...tasks.todo, newItem],
     });
 
     setNewTask("");
   };
 
   // ---------------------------
-  //   ELIMINAR TAREA
-  // ---------------------------
-  const deleteTask = (day, id) => {
-    setTasks((prev) => ({
-      ...prev,
-      [day]: prev[day].filter((t) => t.id !== id),
-    }));
-  };
-
-  // ---------------------------
-  //   TOGGLE CHECKBOX
-  // ---------------------------
-  const toggleDone = (day, id) => {
-    setTasks((prev) => ({
-      ...prev,
-      [day]: prev[day].map((t) =>
-        t.id === id ? { ...t, done: !t.done } : t
-      ),
-    }));
-  };
-
-  // ---------------------------
   //   UI
   // ---------------------------
-  const days = [
-    { key: "lunes", label: "Lunes" },
-    { key: "martes", label: "Martes" },
-    { key: "miercoles", label: "Miércoles" },
-    { key: "jueves", label: "Jueves" },
-    { key: "viernes", label: "Viernes" },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold text-center mb-6">Agenda Semanal</h1>
+      <h1 className="text-3xl font-bold text-center mb-6">Gestor de Tareas</h1>
 
       {/* Input para nueva tarea */}
       <div className="flex justify-center mb-6 gap-2">
@@ -131,7 +139,163 @@ export default function App() {
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {days.map((day) => (
-            <Droppable key={day.key
+          {/* Columna To Do */}
+          <Droppable droppableId="todo">
+            {(provided) => (
+              <div
+                className="bg-white p-4 rounded shadow min-h-[300px]"
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+              >
+                <h2 className="text-xl font-semibold mb-3 text-blue-700">To Do</h2>
+
+                {tasks.todo.map((task, index) => (
+                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                    {(provided) => (
+                      <div
+                        className="flex items-center justify-between p-3 bg-blue-100 rounded mb-2 shadow cursor-grab active:cursor-grabbing"
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                      >
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleComplete(task.id)}
+                          className="mr-2"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+
+                        {/* Texto con tachado si completed */}
+                        <span className={task.completed ? "line-through text-gray-600" : ""}>
+                          {task.text}
+                        </span>
+
+                        {/* Botón borrar */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTask(task.id);
+                          }}
+                          className="text-red-600 text-xl ml-2"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+
+          {/* Columna Proceso */}
+          <Droppable droppableId="proceso">
+            {(provided) => (
+              <div
+                className="bg-white p-4 rounded shadow min-h-[300px]"
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+              >
+                <h2 className="text-xl font-semibold mb-3 text-yellow-600">En Proceso</h2>
+
+                {tasks.proceso.map((task, index) => (
+                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                    {(provided) => (
+                      <div
+                        className="flex items-center justify-between p-3 bg-yellow-100 rounded mb-2 shadow cursor-grab active:cursor-grabbing"
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleComplete(task.id)}
+                          className="mr-2"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+
+                        <span className={task.completed ? "line-through text-gray-600" : ""}>
+                          {task.text}
+                        </span>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTask(task.id);
+                          }}
+                          className="text-red-600 text-xl ml-2"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+
+          {/* Columna Delegadas */}
+          <Droppable droppableId="delegadas">
+            {(provided) => (
+              <div
+                className="bg-white p-4 rounded shadow min-h-[300px]"
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+              >
+                <h2 className="text-xl font-semibold mb-3 text-green-700">Delegadas</h2>
+
+                {tasks.delegadas.map((task, index) => (
+                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                    {(provided) => (
+                      <div
+                        className="flex items-center justify-between p-3 bg-green-100 rounded mb-2 shadow cursor-grab active:cursor-grabbing"
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleComplete(task.id)}
+                          className="mr-2"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+
+                        <span className={task.completed ? "line-through text-gray-600" : ""}>
+                          {task.text}
+                        </span>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTask(task.id);
+                          }}
+                          className="text-red-600 text-xl ml-2"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+
+        </div>
+      </DragDropContext>
+    </div>
+  );
+        }
