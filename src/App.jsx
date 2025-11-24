@@ -1,223 +1,156 @@
 import { useState, useEffect } from "react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 export default function App() {
-  // ---------------------------
-  //   LOCAL STORAGE: CARGAR
-  // ---------------------------
-  const loadTasks = () => {
-    const saved = localStorage.getItem("tasks-board");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  };
+  const [tasks, setTasks] = useState(() => {
+    const saved = localStorage.getItem("tasks");
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  // ---------------------------
-  //   ESTADO INICIAL: 5 DÍAS
-  // ---------------------------
-  const [tasks, setTasks] = useState(
-    loadTasks() || {
-      lunes: [],
-      martes: [],
-      miercoles: [],
-      jueves: [],
-      viernes: [],
-    }
-  );
+  const [dragTask, setDragTask] = useState(null);
 
-  const [newTask, setNewTask] = useState("");
-
-  // ---------------------------
-  //   LOCAL STORAGE: GUARDAR
-  // ---------------------------
   useEffect(() => {
-    localStorage.setItem("tasks-board", JSON.stringify(tasks));
+    localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  // ---------------------------
-  //   BORRAR TAREA
-  // ---------------------------
-  const deleteTask = (id) => {
-    setTasks((prev) => {
-      const newState = { ...prev };
-      for (const col in newState) {
-        newState[col] = newState[col].filter((t) => t.id !== id);
-      }
-      return newState;
-    });
-  };
-
-  // ---------------------------
-  //   MARCAR / DESMARCAR COMPLETADA
-  // ---------------------------
-  const toggleComplete = (id) => {
-    setTasks((prev) => {
-      const newState = { ...prev };
-      for (const col in newState) {
-        newState[col] = newState[col].map((t) =>
-          t.id === id ? { ...t, completed: !t.completed } : t
-        );
-      }
-      return newState;
-    });
-  };
-
-  // ---------------------------
-  //   DRAG & DROP
-  // ---------------------------
-  const handleDragEnd = (result) => {
-    const sourceColumn = result.source.droppableId;
-
-    if (!result.destination) {
-      setTasks((prev) => ({
-        ...prev,
-        [sourceColumn]: prev[sourceColumn].filter(
-          (t, index) => index !== result.source.index
-        ),
-      }));
-      return;
-    }
-
-    const destColumn = result.destination.droppableId;
-
-    const sourceTasks = Array.from(tasks[sourceColumn]);
-    const destTasks = Array.from(tasks[destColumn]);
-
-    const [movedTask] = sourceTasks.splice(result.source.index, 1);
-    destTasks.splice(result.destination.index, 0, movedTask);
-
-    setTasks({
-      ...tasks,
-      [sourceColumn]: sourceTasks,
-      [destColumn]: destTasks,
-    });
-  };
-
-  // ---------------------------
-  //   AGREGAR TAREA (siempre al lunes)
-  // ---------------------------
   const addTask = () => {
-    if (!newTask.trim()) return;
-
-    const newId = Date.now().toString();
-    const newItem = { id: newId, text: newTask, completed: false };
-
-    setTasks({
-      ...tasks,
-      lunes: [...tasks.lunes, newItem],
-    });
-
-    setNewTask("");
+    const text = prompt("Nueva tarea:");
+    if (!text) return;
+    setTasks([...tasks, { id: Date.now(), text, column: "lunes", done: false }]);
   };
 
-  // ---------------------------
-  //   LISTA DE COLUMNAS
-  // ---------------------------
-  const days = [
-    { id: "lunes", title: "Lunes", color: "blue" },
-    { id: "martes", title: "Martes", color: "green" },
-    { id: "miercoles", title: "Miércoles", color: "yellow" },
-    { id: "jueves", title: "Jueves", color: "purple" },
-    { id: "viernes", title: "Viernes", color: "red" },
-  ];
+  const editTask = (task) => {
+    const text = prompt("Editar tarea:", task.text);
+    if (!text) return;
+    setTasks(tasks.map(t => t.id === task.id ? { ...t, text } : t));
+  };
 
-  // ---------------------------
-  //   UI
-  // ---------------------------
+  const deleteTask = (id) => {
+    setTasks(tasks.filter(t => t.id !== id));
+  };
+
+  const toggleDone = (id) => {
+    setTasks(tasks.map(t =>
+      t.id === id ? { ...t, done: !t.done } : t
+    ));
+  };
+
+  const handleDragStart = (task) => {
+    setDragTask(task);
+  };
+
+  const handleDrop = (day) => {
+    if (!dragTask) return;
+    setTasks(tasks.map(t =>
+      t.id === dragTask.id ? { ...t, column: day } : t
+    ));
+    setDragTask(null);
+  };
+
+  const weekDays = ["lunes", "martes", "miercoles", "jueves", "viernes"];
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold text-center mb-6">Planificador Semanal</h1>
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h2>Planificador Semanal</h2>
 
-      {/* Input para nueva tarea */}
-      <div className="flex justify-center mb-6 gap-2">
-        <input
-          type="text"
-          className="border border-gray-400 rounded p-2 w-64"
-          placeholder="Nueva tarea (se agrega al lunes)..."
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-        />
-        <button
-          onClick={addTask}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Agregar
-        </button>
-      </div>
+      <button
+        onClick={addTask}
+        style={{
+          padding: "10px 20px",
+          marginBottom: 20,
+          background: "#4caf50",
+          color: "white",
+          border: "none",
+          borderRadius: 6
+        }}
+      >
+        + Agregar tarea
+      </button>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: 20
+        }}
+      >
+        {weekDays.map((day) => (
+          <div
+            key={day}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop(day)}
+            style={{
+              background: "#f4f4f4",
+              padding: 10,
+              borderRadius: 10,
+              minHeight: "300px",
+            }}
+          >
+            <h3 style={{ textTransform: "capitalize" }}>{day}</h3>
 
-          {days.map((day) => (
-            <Droppable key={day.id} droppableId={day.id}>
-              {(provided) => (
+            {tasks
+              .filter(t => t.column === day)
+              .map(task => (
                 <div
-                  className="bg-white p-4 rounded shadow min-h-[300px]"
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
+                  key={task.id}
+                  draggable
+                  onDragStart={() => handleDragStart(task)}
+                  style={{
+                    background: "white",
+                    padding: 10,
+                    marginBottom: 10,
+                    borderRadius: 8,
+                    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    textDecoration: task.done ? "line-through" : "none"
+                  }}
                 >
-                  <h2 className={`text-xl font-semibold mb-3 text-${day.color}-700`}>
-                    {day.title}
-                  </h2>
+                  <div 
+                    onClick={() => toggleDone(task.id)} 
+                    style={{
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={task.done} 
+                      readOnly
+                    />
+                    {task.text}
+                  </div>
 
-                  {tasks[day.id].map((task, index) => (
-                    <Draggable key={task.id} draggableId={task.id} index={index}>
-                      {(provided) => (
-                        <div
-                          className={`flex items-center justify-between p-3 rounded mb-2 shadow cursor-grab active:cursor-grabbing bg-${day.color}-100`}
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                        >
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      onClick={() => editTask(task)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer"
+                      }}
+                    >
+                      ✏️
+                    </button>
 
-                          {/* Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={task.completed}
-                            onChange={() => toggleComplete(task.id)}
-                            className="mr-2"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-
-                          {/* Texto con tachado */}
-                          <span
-                            className={
-                              task.completed
-                                ? "line-through text-gray-600"
-                                : ""
-                            }
-                          >
-                            {task.text}
-                          </span>
-
-                          {/* Botón borrar */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTask(task.id);
-                            }}
-                            className="text-red-600 text-xl ml-2"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-
-                  {provided.placeholder}
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer"
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-              )}
-            </Droppable>
-          ))}
-
-        </div>
-      </DragDropContext>
+              ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
