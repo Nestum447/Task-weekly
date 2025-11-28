@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
 export default function App() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const saved = localStorage.getItem("calendar-month");
+    return saved ? JSON.parse(saved) : new Date().getMonth();
+  });
 
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startWeekday = firstDay.getDay(); // 0=Domingo
-
-  const monthName = today.toLocaleString("es-ES", { month: "long" });
+  const [currentYear, setCurrentYear] = useState(() => {
+    const saved = localStorage.getItem("calendar-year");
+    return saved ? JSON.parse(saved) : new Date().getFullYear();
+  });
 
   const [tasks, setTasks] = useState(() => {
     const saved = localStorage.getItem("tasks-month");
@@ -20,13 +22,37 @@ export default function App() {
   const [dragTask, setDragTask] = useState(null);
 
   useEffect(() => {
+    localStorage.setItem("calendar-month", JSON.stringify(currentMonth));
+    localStorage.setItem("calendar-year", JSON.stringify(currentYear));
+  }, [currentMonth, currentYear]);
+
+  useEffect(() => {
     localStorage.setItem("tasks-month", JSON.stringify(tasks));
   }, [tasks]);
+
+  const date = new Date(currentYear, currentMonth);
+  const monthName = date.toLocaleString("es-ES", { month: "long" });
+
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const lastDay = new Date(currentYear, currentMonth + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startWeekday = firstDay.getDay();
 
   const addTask = (day) => {
     const text = prompt("Nueva tarea:");
     if (!text) return;
-    setTasks([...tasks, { id: Date.now(), text, day, done: false }]);
+
+    setTasks([
+      ...tasks,
+      {
+        id: Date.now(),
+        text,
+        day,
+        month: currentMonth,
+        year: currentYear,
+        done: false,
+      },
+    ]);
   };
 
   const deleteTask = (id) => {
@@ -34,21 +60,48 @@ export default function App() {
   };
 
   const toggleDone = (id) => {
-    setTasks(
-      tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   };
 
-  const handleDragStart = (task) => {
-    setDragTask(task);
-  };
+  const handleDragStart = (task) => setDragTask(task);
 
   const handleDrop = (day) => {
     if (!dragTask) return;
     setTasks(
-      tasks.map((t) => (t.id === dragTask.id ? { ...t, day } : t))
+      tasks.map((t) =>
+        t.id === dragTask.id
+          ? { ...t, day, month: currentMonth, year: currentYear }
+          : t
+      )
     );
     setDragTask(null);
+  };
+
+  const nextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else setCurrentMonth(currentMonth + 1);
+  };
+
+  const prevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else setCurrentMonth(currentMonth - 1);
+  };
+
+  const exportToPDF = async () => {
+    const element = document.getElementById("calendar-export");
+    const canvas = await html2canvas(element);
+    const img = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+    const width = pdf.internal.pageSize.getWidth();
+    const height = (canvas.height * width) / canvas.width;
+
+    pdf.addImage(img, "PNG", 0, 0, width, height);
+    pdf.save(`calendario-${monthName}-${currentYear}.pdf`);
   };
 
   const gridDays = [];
@@ -56,12 +109,18 @@ export default function App() {
   for (let d = 1; d <= daysInMonth; d++) gridDays.push(d);
 
   return (
+    <div>
+      <button onClick={exportToPDF} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded">Exportar PDF</button>
     <div className="p-6 font-sans">
-      <h2 className="text-2xl font-bold mb-4 text-center capitalize">
-        Calendario de {monthName} {year}
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <button onClick={prevMonth} className="px-3 py-1 bg-gray-300 rounded">◀</button>
+        <h2 className="text-2xl font-bold text-center capitalize">
+          {monthName} {currentYear}
+        </h2>
+        <button onClick={nextMonth} className="px-3 py-1 bg-gray-300 rounded">▶</button>
+      </div>
 
-      <div className="grid grid-cols-7 gap-2 text-center font-semibold mb-2">
+      <div id="calendar-export" className="grid grid-cols-7 gap-2 text-center font-semibold mb-2">
         {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
           <div key={d} className="p-2">{d}</div>
         ))}
@@ -73,14 +132,14 @@ export default function App() {
             key={index}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => day && handleDrop(day)}
-            className="border rounded-lg min-h-[120px] p-2 bg-gray-100"
+            className="border rounded-lg min-h-[110px] p-1 bg-gray-100 overflow-hidden"
           >
             {day && (
-              <div className="font-bold mb-2 flex justify-between">
+              <div className="font-bold mb-1 flex justify-between text-xs">
                 <span>{day}</span>
                 <button
                   onClick={() => addTask(day)}
-                  className="text-green-600 text-xl"
+                  className="text-green-600 text-lg"
                 >
                   +
                 </button>
@@ -88,25 +147,30 @@ export default function App() {
             )}
 
             {tasks
-              .filter((t) => t.day === day)
+              .filter(
+                (t) =>
+                  t.day === day &&
+                  t.month === currentMonth &&
+                  t.year === currentYear
+              )
               .map((task) => (
                 <div
                   key={task.id}
                   draggable
                   onDragStart={() => handleDragStart(task)}
-                  className={`bg-white p-2 mb-2 rounded shadow text-sm flex justify-between items-center ${task.done ? "line-through" : ""}`}
+                  className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center ${task.done ? "line-through" : ""}`}
                 >
                   <div
                     onClick={() => toggleDone(task.id)}
-                    className="cursor-pointer flex items-center gap-2"
+                    className="cursor-pointer flex items-center gap-1"
                   >
-                    <input type="checkbox" checked={task.done} readOnly />
-                    {task.text}
+                    <input type="checkbox" checked={task.done} readOnly className="scale-75" />
+                    <span className="truncate w-20">{task.text}</span>
                   </div>
 
                   <button
                     onClick={() => deleteTask(task.id)}
-                    className="text-red-500 text-lg"
+                    className="text-red-500 text-sm"
                   >
                     🗑️
                   </button>
