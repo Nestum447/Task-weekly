@@ -154,7 +154,7 @@ export default function App() {
                     onClick={() => deleteTask(task.id)}
                     className="text-red-500 text-sm"
                   >
-                    🗑️
+                    <span className="text-red-600 text-lg">🗑️</span>
                   </button>
                 </div>
               ))}
