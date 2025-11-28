@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 export default function App() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -90,126 +88,82 @@ export default function App() {
     } else setCurrentMonth(currentMonth - 1);
   };
 
-  const exportToPDF = async () => {
-    const element = document.getElementById("calendar-export");
-    const canvas = await html2canvas(element);
-    const img = canvas.toDataURL("image/png");
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    const width = pdf.internal.pageSize.getWidth();
-    const height = (canvas.height * width) / canvas.width;
-
-    pdf.addImage(img, "PNG", 0, 0, width, height);
-    pdf.save(`calendario-${monthName}-${currentYear}.pdf`);
-  };
-
   const gridDays = [];
   for (let i = 0; i < startWeekday; i++) gridDays.push(null);
   for (let d = 1; d <= daysInMonth; d++) gridDays.push(d);
 
   return (
-    <div>
-      <button
-        onClick={exportToPDF}
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded"
-      >
-        Exportar PDF
-      </button>
-
-      <div className="p-6 font-sans">
-        <div className="flex justify-between items-center mb-4">
-          <button
-            onClick={prevMonth}
-            className="px-3 py-1 bg-gray-300 rounded"
-          >
-            ◀
-          </button>
-
-          <h2 className="text-2xl font-bold text-center capitalize">
-            {monthName} {currentYear}
-          </h2>
-
-          <button
-            onClick={nextMonth}
-            className="px-3 py-1 bg-gray-300 rounded"
-          >
-            ▶
-          </button>
-        </div>
-
-        <div
-          id="calendar-export"
-          className="grid grid-cols-7 gap-2 text-center font-semibold mb-2"
-        >
-          {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
-            <div key={d} className="p-2">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-2">
-          {gridDays.map((day, index) => (
-            <div
-              key={index}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => day && handleDrop(day)}
-              className="border rounded-lg min-h-[110px] p-1 bg-gray-100 overflow-hidden"
-            >
-              {day && (
-                <div className="font-bold mb-1 flex justify-between text-xs">
-                  <span>{day}</span>
-                  <button
-                    onClick={() => addTask(day)}
-                    className="text-green-600 text-lg"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-
-              {tasks
-                .filter(
-                  (t) =>
-                    t.day === day &&
-                    t.month === currentMonth &&
-                    t.year === currentYear
-                )
-                .map((task) => (
-                  <div
-                    key={task.id}
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center ${
-                      task.done ? "line-through" : ""
-                    }`}
-                  >
-                    <div
-                      onClick={() => toggleDone(task.id)}
-                      className="cursor-pointer flex items-center gap-1"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={task.done}
-                        readOnly
-                        className="scale-75"
-                      />
-                      <span className="truncate w-20">{task.text}</span>
-                    </div>
-
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="text-red-500 text-sm"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ))}
-            </div>
-          ))}
-        </div>
+    <div className="p-6 font-sans">
+      {/* Controles del mes */}
+      <div className="flex justify-between items-center mb-4">
+        <button onClick={prevMonth} className="px-3 py-1 bg-gray-300 rounded">◀</button>
+        <h2 className="text-2xl font-bold text-center capitalize">
+          {monthName} {currentYear}
+        </h2>
+        <button onClick={nextMonth} className="px-3 py-1 bg-gray-300 rounded">▶</button>
       </div>
 
+      {/* Encabezados */}
+      <div className="grid grid-cols-7 gap-2 text-center font-semibold mb-2">
+        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
+          <div key={d} className="p-2">{d}</div>
+        ))}
+      </div>
+
+      {/* Celdas del calendario */}
+      <div className="grid grid-cols-7 gap-2">
+        {gridDays.map((day, index) => (
+          <div
+            key={index}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => day && handleDrop(day)}
+            className="border rounded-lg min-h-[110px] p-1 bg-gray-100 overflow-hidden"
+          >
+            {day && (
+              <div className="font-bold mb-1 flex justify-between text-xs">
+                <span>{day}</span>
+                <button
+                  onClick={() => addTask(day)}
+                  className="text-green-600 text-lg"
+                >
+                  +
+                </button>
+              </div>
+            )}
+
+            {tasks
+              .filter(
+                (t) =>
+                  t.day === day &&
+                  t.month === currentMonth &&
+                  t.year === currentYear
+              )
+              .map((task) => (
+                <div
+                  key={task.id}
+                  draggable
+                  onDragStart={() => handleDragStart(task)}
+                  className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center ${task.done ? "line-through" : ""}`}
+                >
+                  <div
+                    onClick={() => toggleDone(task.id)}
+                    className="cursor-pointer flex items-center gap-1"
+                  >
+                    <input type="checkbox" checked={task.done} readOnly className="scale-75" />
+                    <span className="truncate w-20">{task.text}</span>
+                  </div>
+
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="text-red-500 text-sm"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
