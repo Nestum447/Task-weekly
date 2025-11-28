@@ -136,30 +136,51 @@ export default function App() {
                   t.year === currentYear
               )
               .map((task) => (
-                <div
+                <TaskItem
                   key={task.id}
-                  draggable
-                  onDragStart={() => handleDragStart(task)}
-                  className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center ${task.done ? "line-through" : ""}`}
-                >
-                  <div
-                    onClick={() => toggleDone(task.id)}
-                    className="cursor-pointer flex items-center gap-1"
-                  >
-                    <input type="checkbox" checked={task.done} readOnly className="scale-75" />
-                    <span className="truncate w-20">{task.text}</span>
-                  </div>
-
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="text-red-500 text-sm"
-                  >
-                    <span className="text-red-600 text-lg">🗑️</span>
-                  </button>
-                </div>
+                  task={task}
+                  toggleDone={toggleDone}
+                  deleteTask={deleteTask}
+                  handleDragStart={handleDragStart}
+                />
               ))}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function TaskItem({ task, toggleDone, deleteTask, handleDragStart }) {
+  let pressTimer = null;
+
+  const startPress = () => {
+    pressTimer = setTimeout(() => {
+      if (confirm("¿Borrar esta tarea?")) {
+        deleteTask(task.id);
+      }
+    }, 600);
+  };
+
+  const cancelPress = () => clearTimeout(pressTimer);
+
+  return (
+    <div
+      draggable
+      onDragStart={() => handleDragStart(task)}
+      onPointerDown={startPress}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center active:bg-gray-200 transition ${
+        task.done ? "line-through" : ""
+      }`}
+    >
+      <div
+        onClick={() => toggleDone(task.id)}
+        className="cursor-pointer flex items-center gap-1 w-full"
+      >
+        <input type="checkbox" checked={task.done} readOnly className="scale-75" />
+        <span className="truncate w-20">{task.text}</span>
       </div>
     </div>
   );
