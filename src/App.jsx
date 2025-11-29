@@ -17,6 +17,8 @@ export default function App() {
   });
 
   const [dragTask, setDragTask] = useState(null);
+  const [swipeStart, setSwipeStart] = useState(null);
+  const [swipedTask, setSwipedTask] = useState(null); // ID del task swiped
 
   useEffect(() => {
     localStorage.setItem("calendar-month", JSON.stringify(currentMonth));
@@ -35,6 +37,9 @@ export default function App() {
   const daysInMonth = lastDay.getDate();
   const startWeekday = firstDay.getDay();
 
+  // ----------------------
+  // ADD TASK
+  // ----------------------
   const addTask = (day) => {
     const text = prompt("Nueva tarea:");
     if (!text) return;
@@ -52,18 +57,52 @@ export default function App() {
     ]);
   };
 
+  // ----------------------
+  // DELETE TASK
+  // ----------------------
   const deleteTask = (id) => {
     setTasks(tasks.filter((t) => t.id !== id));
+    setSwipedTask(null);
   };
 
+  // ----------------------
+  // SWIPE HANDLERS
+  // ----------------------
+  const handleTouchStart = (e, id) => {
+    setSwipeStart(e.touches[0].clientX);
+    setSwipedTask(null);
+  };
+
+  const handleTouchMove = (e, id) => {
+    if (swipeStart === null) return;
+
+    const diff = e.touches[0].clientX - swipeStart;
+
+    if (diff < -40) {
+      setSwipedTask(id); // mostrar botón borrar
+    }
+    if (diff > 40) {
+      setSwipedTask(null); // ocultar
+    }
+  };
+
+  const handleTouchEnd = () => setSwipeStart(null);
+
+  // ----------------------
+  // TOGGLE DONE
+  // ----------------------
   const toggleDone = (id) => {
     setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
   };
 
+  // ----------------------
+  // DRAG & DROP
+  // ----------------------
   const handleDragStart = (task) => setDragTask(task);
 
   const handleDrop = (day) => {
     if (!dragTask) return;
+
     setTasks(
       tasks.map((t) =>
         t.id === dragTask.id
@@ -71,6 +110,7 @@ export default function App() {
           : t
       )
     );
+
     setDragTask(null);
   };
 
@@ -88,6 +128,9 @@ export default function App() {
     } else setCurrentMonth(currentMonth - 1);
   };
 
+  // ----------------------
+  // GRID
+  // ----------------------
   const gridDays = [];
   for (let i = 0; i < startWeekday; i++) gridDays.push(null);
   for (let d = 1; d <= daysInMonth; d++) gridDays.push(d);
@@ -95,16 +138,20 @@ export default function App() {
   return (
     <div className="p-6 font-sans">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={prevMonth} className="px-3 py-1 bg-gray-300 rounded">◀</button>
-        <h2 className="text-2xl font-bold text-center capitalize">
+        <button onClick={prevMonth} className="px-3 py-1 bg-gray-300 rounded">
+          ◀
+        </button>
+        <h2 className="text-2xl font-bold capitalize">
           {monthName} {currentYear}
         </h2>
-        <button onClick={nextMonth} className="px-3 py-1 bg-gray-300 rounded">▶</button>
+        <button onClick={nextMonth} className="px-3 py-1 bg-gray-300 rounded">
+          ▶
+        </button>
       </div>
 
       <div className="grid grid-cols-7 gap-2 text-center font-semibold mb-2">
         {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => (
-          <div key={d} className="p-2">{d}</div>
+          <div key={d}>{d}</div>
         ))}
       </div>
 
@@ -136,51 +183,42 @@ export default function App() {
                   t.year === currentYear
               )
               .map((task) => (
-                <TaskItem
+                <div
                   key={task.id}
-                  task={task}
-                  toggleDone={toggleDone}
-                  deleteTask={deleteTask}
-                  handleDragStart={handleDragStart}
-                />
+                  draggable
+                  onDragStart={() => handleDragStart(task)}
+                  onTouchStart={(e) => handleTouchStart(e, task.id)}
+                  onTouchMove={(e) => handleTouchMove(e, task.id)}
+                  onTouchEnd={handleTouchEnd}
+                  className={`relative bg-white p-1 mb-1 rounded shadow text-[10px] transition-all duration-200 ${
+                    task.done ? "line-through" : ""
+                  } ${swipedTask === task.id ? "translate-x-[-60px]" : ""}`}
+                >
+                  <div
+                    onClick={() => toggleDone(task.id)}
+                    className="cursor-pointer flex items-center gap-1"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={task.done}
+                      readOnly
+                      className="scale-75"
+                    />
+                    <span className="truncate w-20">{task.text}</span>
+                  </div>
+
+                  {swipedTask === task.id && (
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="absolute right-0 top-0 bottom-0 bg-red-500 text-white px-2 text-xs rounded-r"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
               ))}
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function TaskItem({ task, toggleDone, deleteTask, handleDragStart }) {
-  let pressTimer = null;
-
-  const startPress = () => {
-    pressTimer = setTimeout(() => {
-      if (confirm("¿Borrar esta tarea?")) {
-        deleteTask(task.id);
-      }
-    }, 600);
-  };
-
-  const cancelPress = () => clearTimeout(pressTimer);
-
-  return (
-    <div
-      draggable
-      onDragStart={() => handleDragStart(task)}
-      onPointerDown={startPress}
-      onPointerUp={cancelPress}
-      onPointerLeave={cancelPress}
-      className={`bg-white p-1 mb-1 rounded shadow text-[10px] flex justify-between items-center active:bg-gray-200 transition ${
-        task.done ? "line-through" : ""
-      }`}
-    >
-      <div
-        onClick={() => toggleDone(task.id)}
-        className="cursor-pointer flex items-center gap-1 w-full"
-      >
-        <input type="checkbox" checked={task.done} readOnly className="scale-75" />
-        <span className="truncate w-20">{task.text}</span>
       </div>
     </div>
   );
